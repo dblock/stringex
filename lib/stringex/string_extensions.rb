@@ -35,14 +35,18 @@ module Stringex
     # Create a URI-friendly representation of the string. This is used internally by
     # acts_as_url[link:classes/Stringex/ActsAsUrl/ClassMethods.html#M000012]
     # but can be called manually in order to generate an URI-friendly version of any string.
-    def to_url
-      remove_formatting.downcase.replace_whitespace("-").collapse("-")
+    def to_url(options = {})
+      remove_formatting(options).downcase.replace_whitespace("-").collapse("-").limit(options[:limit])
+    end
+
+    def limit(lim = nil)
+      lim.nil? ? self : self[0...lim]
     end
 
     # Performs multiple text manipulations. Essentially a shortcut for typing them all. View source
     # below to see which methods are run.
-    def remove_formatting
-      strip_html_tags.convert_smart_punctuation.convert_accented_entities.convert_misc_entities.convert_misc_characters.to_ascii.collapse
+    def remove_formatting(options = {})
+      strip_html_tags.convert_smart_punctuation.convert_accented_entities.convert_vulgar_fractions.convert_misc_entities.convert_misc_characters(options).to_ascii.collapse
     end
 
     # Removes HTML tags from text. This code is simplified from Tobias Luettke's regular expression
@@ -67,7 +71,7 @@ module Stringex
     # Note: This does not do any conversion of Unicode/ASCII accented-characters. For that
     # functionality please use <tt>to_ascii</tt>.
     def convert_accented_entities
-      gsub(/&([A-Za-z])(grave|acute|circ|tilde|uml|ring|cedil|slash);/, '\1')
+      gsub(/&([A-Za-z])(grave|acute|circ|tilde|uml|ring|cedil|slash);/, '\1').strip
     end
 
     # Converts HTML entities (taken from common Textile/RedCloth formattings) into plain text formats.
@@ -95,11 +99,37 @@ module Stringex
         "(#188|frac14)" => "one fourth",
         "(#189|frac12)" => "half",
         "(#190|frac34)" => "three fourths",
-        "(#176|deg)" => " degrees"
+        "(#176|deg)" => " degrees "
       }.each do |textiled, normal|
         dummy.gsub!(/&#{textiled};/, normal)
       end
-      dummy.gsub(/&[^;]+;/, "")
+      dummy.gsub(/&[^;]+;/, "").strip
+    end
+
+    # Converts vulgar fractions from supported html entities and unicode to
+    # plain text formats.
+    def convert_vulgar_fractions
+      dummy = dup
+      {
+        "(&#188;|&frac14;|¼)" => "one fourth",
+        "(&#189;|&frac12;|½)" => "half",
+        "(&#190;|&frac34;|¾)" => "three fourths",
+        "(&#8531;|⅓)" => "one third",
+        "(&#8532;|⅔)" => "two thirds",
+        "(&#8533;|⅕)" => "one fifth",
+        "(&#8534;|⅖)" => "two fifths",
+        "(&#8535;|⅗)" => "three fifths",
+        "(&#8536;|⅘)" => "four fifths",
+        "(&#8537;|⅙)" => "one sixth",
+        "(&#8538;|⅚)" => "five sixths",
+        "(&#8539;|⅛)" => "one eighth",
+        "(&#8540;|⅜)" => "three eighths",
+        "(&#8541;|⅝)" => "five eighths",
+        "(&#8542;|⅞)" => "seven eighths"
+      }.each do |textiled, normal|
+        dummy.gsub!(/#{textiled}/, normal)
+      end
+      dummy
     end
 
     # Converts MS Word 'smart punctuation' to ASCII
@@ -114,7 +144,7 @@ module Stringex
       }.each do |smart, normal|
         dummy.gsub!(/#{smart}/, normal)
       end
-      dummy
+      dummy.strip
     end
 
     # Converts various common plaintext characters to a more URI-friendly representation.
@@ -132,7 +162,7 @@ module Stringex
     # Note: Because this method will convert any & symbols to the string "and",
     # you should run any methods which convert HTML entities (convert_html_entities and convert_misc_entities)
     # before running this method.
-    def convert_misc_characters
+    def convert_misc_characters(options = {})
       dummy = dup.gsub(/\.{3,}/, " dot dot dot ") # Catch ellipses before single dot rule!
       # Special rules for money
       {
@@ -143,6 +173,7 @@ module Stringex
         dummy.gsub!(found, replaced)
       end
       # Back to normal rules
+      misc_characters =
       {
         /\s*&\s*/ => "and",
         /\s*#/ => "number",
@@ -153,14 +184,16 @@ module Stringex
         /(\s|^)¥(\d*)(\s|$)/u => '\2 yen',
         /\s*\*\s*/ => "star",
         /\s*%\s*/ => "percent",
-        /\s*(\\|\/)\s*/ => "slash",
         /(\s*=\s*)/ => " equals ",
-        /\s*\+\s*/ => "plus"
-      }.each do |found, replaced|
+        /\s*\+\s*/ => "plus",
+        /\s*°\s*/ => "degrees"
+      }
+      misc_characters[/\s*(\\|\/|／)\s*/] = 'slash' unless options[:allow_slash]
+      misc_characters.each do |found, replaced|
         replaced = " #{replaced} " unless replaced =~ /\\1/
         dummy.gsub!(found, replaced)
       end
-      dummy = dummy.gsub(/(^|[[:alpha:]])'([[:alpha:]]|$)/, '\1\2').gsub(/[\.,:;()\[\]\/\?!\^'ʼ"_]/, " ")
+      dummy = dummy.gsub(/(^|[[:alpha:]])'([[:alpha:]]|$)/, '\1\2').gsub(/[\.,:;()\[\]\/\?!\^'ʼ"_]/, " ").strip
     end
 
     # Replace runs of whitespace in string. Defaults to a single space but any replacement
