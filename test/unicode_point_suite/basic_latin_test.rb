@@ -1,7 +1,6 @@
 # encoding: UTF-8
 require "test/unit"
-
-require File.join(File.expand_path(File.dirname(__FILE__)), "../../init.rb")
+require "stringex"
 require File.join(File.expand_path(File.dirname(__FILE__)), "codepoint_test_helper.rb")
 include CodepointTestHelper
 
@@ -108,7 +107,7 @@ class BasicLatinTest < Test::Unit::TestCase
   end
 
   def test_grave_accents
-    assert_equal_encoded "`", %w{0060 02cb 2035}
+    assert_equal_encoded "'", %w{0060 02cb 2035}
   end
 
   def test_bars

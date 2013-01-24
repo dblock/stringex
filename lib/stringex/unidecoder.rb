@@ -14,7 +14,7 @@ module Stringex
       #
       # You're probably better off just using the added String#to_ascii
       def decode(string)
-        string.gsub(/[^\x00-\x7f]/u) do |codepoint|
+        string.gsub(/[^\x00-\x00]/u) do |codepoint|
           if localized = local_codepoint(codepoint)
             localized
           else
@@ -33,6 +33,11 @@ module Stringex
       # Returns character for the given Unicode codepoint
       def encode(codepoint)
         ["0x#{codepoint}".to_i(16)].pack("U")
+      end
+
+      # Returns Unicode codepoint for the given character
+      def get_codepoint(character)
+        "%04x" % character.unpack("U")[0]
       end
 
       # Returns string indicating which file (and line) contains the
@@ -115,18 +120,22 @@ module Stringex
       # Checks LOCAL_CODEPOINTS's Hash is in the format we expect before assigning it and raises
       # instructive exception if not
       def verify_local_codepoints(hash)
-        pass_check = hash.is_a?(Hash) && hash.all?{|key, value|
-          # Fuck a duck, eh?
-          [Symbol, String].include?(key.class) && value.is_a?(Hash) &&
-            value.keys.all?{|k| k.is_a?(String)} && value.values.all?{|v| v.is_a?(String)}
-        }
-        if pass_check
-          hash.each do |k, v|
-            LOCAL_CODEPOINTS[k] = v
-          end
-        else
+        if !pass_check(hash)
           raise ArgumentError, "LOCAL_CODEPOINTS is not correctly defined. Please see the README for more information on how to correctly format this data."
         end
+        hash.each{|k, v| LOCAL_CODEPOINTS[k] = v}
+      end
+
+      def pass_check(hash)
+        return false if !hash.is_a?(Hash)
+        hash.all?{|key, value| pass_check_key_and_value_test(key, value) }
+      end
+
+      def pass_check_key_and_value_test(key, value)
+        # Fuck a duck, eh?
+        return false unless [Symbol, String].include?(key.class)
+        return false unless value.is_a?(Hash)
+        value.all?{|k, v| k.is_a?(String) && v.is_a?(String)}
       end
     end
   end
@@ -135,10 +144,13 @@ module Stringex
   class << self
     %w{
       localize_from
-      locale locale=
-      default_locale default_locale=
+      locale
+      locale=
+      default_locale
+      default_locale=
       local_codepoint
-      with_locale with_default_locale
+      with_locale
+      with_default_locale
     }.each do |name|
       define_method name do |*args, &block|
         Unidecoder.send name, *args, &block
@@ -148,10 +160,10 @@ module Stringex
 end
 
 module Stringex
-  module StringExtensions
+  module StringExtensions::PublicInstanceMethods
     # Returns string with its UTF-8 characters transliterated to ASCII ones. Example:
     #
-    #   "⠋⠗⠁⠝⠉⠑".to_ascii #=> "braille"
+    #   "⠋⠗⠁⠝⠉⠑".to_ascii #=> "france"
     def to_ascii
       Stringex::Unidecoder.decode(self)
     end

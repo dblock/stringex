@@ -1,9 +1,6 @@
 # encoding: UTF-8
-
-require "test/unit"
-
-$: << File.join(File.expand_path(File.dirname(__FILE__)), '../lib')
-require File.join(File.expand_path(File.dirname(__FILE__)), "../init.rb")
+require "test_helper"
+require "stringex"
 
 class UnidecoderTest < Test::Unit::TestCase
   # Silly phrases courtesy of Frank da Cruz
@@ -40,7 +37,7 @@ class UnidecoderTest < Test::Unit::TestCase
     "من می توانم بدونِ احساس درد شيشه بخورم" => # Persian
       "mn my twnm bdwni Hss drd shyshh bkhwrm",
     "أنا قادر على أكل الزجاج و هذا لا يؤلمن" => # Arabic
-      "'n qdr `l~ 'kl lzjj w hdh l yw'lmn",
+      "'n qdr 'l~ 'kl lzjj w hdh l yw'lmn",
     "אני יכול לאכול זכוכית וזה לא מזיק לי" => # Hebrew
       "ny ykvl lkvl zkvkyt vzh l mzyq ly",
     "ฉันกินกระจกได้ แต่มันไม่ทำให้ฉันเจ็บ" => # Thai
@@ -48,7 +45,9 @@ class UnidecoderTest < Test::Unit::TestCase
     "我能吞下玻璃而不伤身体。" => # Chinese
       "Wo Neng Tun Xia Bo Li Er Bu Shang Shen Ti . ",
     "私はガラスを食べられます。それは私を傷つけません。" => # Japanese
-      "Si hagarasuwoShi beraremasu. sorehaSi woShang tukemasen. "
+      "Si hagarasuwoShi beraremasu. sorehaSi woShang tukemasen. ",
+    "⠋⠗⠁⠝⠉⠑" => # Braille
+      "france"
   }
 
   def test_unidecoder_decode
@@ -77,6 +76,17 @@ class UnidecoderTest < Test::Unit::TestCase
       "042f" => "Я"
     }.each do |codepoint, unicode|
       assert_equal unicode, Stringex::Unidecoder.encode(codepoint)
+    end
+  end
+
+  def test_unidecoder_get_codepoint
+    {
+      # Strings
+      "A" => "0041",
+      "æ" => "00e6",
+      "Я" => "042f"
+    }.each do |unicode, codepoint|
+      assert_equal codepoint, Stringex::Unidecoder.get_codepoint(unicode)
     end
   end
 
